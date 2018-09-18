@@ -1,0 +1,13 @@
+{
+  "name": "",
+  "version": "",
+  "dependencies": {
+    "agenda": "^2.0.2",
+    "mongoose": "^5.2.14",
+    "mongoose-sequence": "^4.0.1",
+    "passport": "^0.4.0",
+    "passport-google-oauth": "^1.0.0",
+    "request": "^2.87.0",
+    "sync-request": "^6.0.0"
+  }
+}

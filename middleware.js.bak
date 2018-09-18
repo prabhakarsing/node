@@ -1,0 +1,11 @@
+var exp=require('express')
+var app=exp()
+
+app.get('/user/:id', function (req, res, next) {
+  console.log('ID:', req.params.id)
+  next()
+}, function (req, res, next) {
+  res.send('User Info')
+})
+	  app.listen(1000)
+	  console.log("1000")
