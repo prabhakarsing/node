@@ -1,0 +1,294 @@
+var express = require('express');
+var router = express.Router();
+var async = require('async')
+var config = require('../config/config').Config
+process.env.token = "test";
+const request = require("request");
+/* GET home page. */
+
+const inntance_url = "https://login.salesforce.com/id/00D2v000001dv4NEAQ/0052v00000a2XdZAAU";
+const chatter_api = '/services/data/v47.0/chatter/feeds/news/me/feed-elements';
+var sfdcAccessToken; 
+
+//req.myurl = '/getFeeds';
+
+
+// var options = {
+//   method: 'GET',
+//   url: '',
+//   headers: {
+//     'cache-control': 'no-cache',
+//     Authorization: sfdcAccessToken
+//   }
+// };
+//req.options = options;
+
+
+// var myREq = function (req, res, next) {
+//   router.post(req.myurl, (req, res) => {
+
+//     request(options, function (error, response, body) {
+//       var jsonResp = {};
+//       if (error) {
+//         res.send(error)
+//       }
+//       res.send(response)
+//     });
+//   });
+// }
+
+
+
+router.get('/getFeeds', (req, res) => {
+  
+ 
+  var Resp = [];
+  var response = {};
+  
+  response.firstObj = '';
+  response.sencondObj = '';
+  response.thirdObj = '';
+  response.error = '';
+
+  async.waterfall([
+    function(callback){
+        var options = { method: 'POST',
+        url: 'https://login.salesforce.com/services/oauth2/token',
+        qs: 
+        { username: 'prabhakarneworg@app.com',
+          password: 'Prabhu$321nVCeAuFdp4HoV7fXESiM9Djd6',
+          grant_type: 'password',
+          client_id: '3MVG9G9pzCUSkzZsRrYrZHnbJ0dYUJ6S9t6kSpFtPuNcT9kS7F5YSIozhXKWRkqAIQRFD1cXo2IXEjWDyIhy5',
+          client_secret: 'BE635097D0D11BEDF1C4E37B5F87698D18B986CB65E8D9030B05336A5B209B46' },
+        headers: 
+        { 
+          Accept: '*/*',
+          } 
+      };
+    
+      request(options, function (error, res, body) {
+        if (error) {
+          console.log('Error While Retrieving Token', error)
+          callback();
+    
+        } else {
+          //response.firstObj = res.body;
+          sfdcAccessToken = JSON.parse(res.body);
+          sfdcAccessToken = 'Bearer '+sfdcAccessToken.access_token
+          console.log("Response SFDC Token+++",  res.body);
+          console.log("sfdcAccessTokensfdcAccessTokensfdcAccessToken SFDC Token+++",  sfdcAccessToken);
+          callback();
+        }
+      });
+    },
+    function (callback) {
+      var options = {
+        method: 'POST',
+        url: config.Login_Url + '/services/data/v47.0/chatter/feeds/news/me/feed-elements',
+        headers: {
+          'cache-control': 'no-cache',
+          Authorization: sfdcAccessToken
+        }
+      };
+      request(options, function (err, response, body) {
+
+        if (err) {
+          console.log(err)
+          response = err;
+
+        } else {
+          response.firstObj = response.body;
+          console.log('First');
+          return callback(null, response);
+        }
+      });
+
+
+    },
+    function (response, callback) {
+      var url = JSON.parse(response.firstObj).urls.feeds.replace('{version}', "40.0");
+      var options = {
+        method: 'GET',
+        url: url,
+        headers: {
+          'cache-control': 'no-cache',
+          Authorization: sfdcAccessToken
+         
+        }
+      }
+      request(options, function (error, res2, body) {
+        console.log('Second');
+        response.sencondObj = res2.body;
+        return callback(null, response);
+      })
+
+
+
+    },
+
+    function (response, callback) {
+
+      var feeds = JSON.parse(response.sencondObj).feeds
+      var url = feeds.filter(data => {
+        return data.label == 'To Me'
+      })
+      url = url[0].feedElementsUrl
+      console.log("thirs url ", url);
+      var options = {
+        method: 'GET',
+        url: config.Instance_Url + url,
+        headers: {
+          'cache-control': 'no-cache',
+          Authorization:sfdcAccessToken
+        }
+      }
+      request(options, function (error, res3, body) {
+        //console.log("response.thirdObj",res3.body)
+        response.thirdObj = JSON.parse(res3.body).elements[0];
+
+        console.log('Third');
+        return callback(null, response);
+      })
+    }
+  ], function (err, resp) {
+    console.log('final ')
+    var finalObj = resp.thirdObj;
+    var finalData = {};
+    finalData.displayName = finalObj.actor.displayName
+    finalData.text = finalObj.body.text
+
+    Resp.push(finalData);
+
+    console.log('Resp', Resp)
+    res.send(Resp)
+
+  });
+
+
+
+
+})
+
+
+
+
+////Post Feed Item ////////
+
+router.post('/postFeeds', (req, res) => {
+  var options = {
+    method: 'POST',
+    url: 'https://prabhakarappshark1-dev-ed.my.salesforce.com/services/data/v40.0/chatter/feed-elements',
+    headers: {
+      'cache-control': 'no-cache',
+      Authorization: sfdcAccessToken
+    },   
+     body:{ 'body':{
+         'messageSegments':[
+            {
+               'type':'Text',
+               'text': req.body.text 
+            }
+         ]
+      },
+      'feedElementType':'FeedItem',
+      'subjectId':'me'
+    }
+   ,
+  json: true
+  }
+  request(options, function (error, response, body) {
+    var jsonResp = {};
+    if (error) {
+      console.log("error After creating the POST", error);
+ res.send(error)
+    } else {
+        console.log("body After creating the POST", body);
+     }
+ res.send(response.body)
+  });
+
+
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+// router.get('/getFeeds', (req, res) => {
+
+//   var options = {
+//     method: 'POST',
+//     url: 'https://login.salesforce.com/id/00D2v000001dv4NEAQ/0052v00000a2XdZAAU/services/data/v47.0/chatter/feeds/news/me/feed-elements',
+//     headers: {
+//       'cache-control': 'no-cache',
+//       Authorization: 'Bearer 00D2v000001dv4N!AQMAQGp3wTRMW.9a_gp5VHUBjWuRG2hevDsPqtkYO75EpASmXeJgJbcw9BKPqi4003QYeZXbOjZU_pLKfdWHLqal8iAgAekE'
+//     }
+//   };
+
+//   request(options, function (error, response, body) {
+//     var jsonResp = {};
+//     if (error) {
+
+//       res.send(error)
+//     } else {
+
+//     }
+
+//     res.send(response)
+//   });
+
+
+
+
+
+router.post('/getAllFeeds', (req, res) => {
+  console.log("reqbody", req.body)
+
+  var options = {
+    method: 'GET',
+    url: req.body.data,
+    headers: {
+      'cache-control': 'no-cache',
+      Authorization: 'Bearer 00D2v000001dv4N!AQMAQGp3wTRMW.9a_gp5VHUBjWuRG2hevDsPqtkYO75EpASmXeJgJbcw9BKPqi4003QYeZXbOjZU_pLKfdWHLqal8iAgAekE'
+    }
+  };
+
+  request(options, function (error, response, body) {
+    var jsonResp = {};
+    if (error) {
+      // jsonResp.status=0;
+      // jsonResp.message = err;
+      //  res.statusCode=400;
+      res.send(error)
+    } else {
+      //  jsonResp.status=1;
+      // jsonResp.message = response;
+      // res.statusCode=200;
+    }
+    //res.send(jsonResp)
+    res.send(response)
+  });
+
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+module.exports = router;
